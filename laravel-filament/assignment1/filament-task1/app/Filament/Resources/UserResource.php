@@ -38,9 +38,9 @@ class UserResource extends Resource
                     ->preload(),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
-                    ->dehydrated(fn (?string $state): bool => filled($state))
-                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
+                    ->dehydrated(fn(?string $state): bool => filled($state))
+                    ->required(fn(string $operation): bool => $operation === 'create')
                     ->maxLength(255),
             ]);
     }
@@ -62,9 +62,19 @@ class UserResource extends Resource
                         'editor' => 'warning',
                         'user' => 'success',
                         default => 'gray',
+                    })->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('role', function (Builder $query) use ($search) {
+                            $query->where('name', 'like', "%{$search}%");
+                        });
                     })
-                    ->searchable()
-                    ->sortable(),
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            fn($query) => $query->select('name')
+                                ->from('roles')
+                                ->whereColumn('roles.id', 'users.role_id'),
+                            $direction
+                        );
+                    }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -75,12 +85,11 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('role')
-                    ->options([
-                        'admin' => 'Admin',
-                        'editor' => 'Editor',
-                        'user' => 'User',
-                    ])
+                Tables\Filters\SelectFilter::make('role_id')
+                    ->label('Role')
+                    ->options(function () {
+                        return \App\Models\Role::pluck('name', 'id')->toArray();
+                    })
                     ->label('Filter by Role')
                     ->placeholder('All Roles'),
             ])
