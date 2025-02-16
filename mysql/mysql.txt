@@ -1,0 +1,30 @@
+/**
+*You have a table with millions of records, and the following query is running very slowly:
+*```sql
+*SELECT * FROM orders WHERE status = 'pending' ORDER BY created_at DESC LIMIT 50;
+*```
+**/
+
+1. Analysis of Current Query Performance
+
+The query is slow due to two main factors:
+
+Full Table Scan: Without an index on the status column, the database must scan all millions of rows to find orders with status = 'pending'.
+
+Sorting Overhead: After filtering, the ORDER BY created_at DESC forces a costly in-memory or disk-based sort (filesort) on the remaining rows.
+Even with a LIMIT 50, the database must process all qualifying rows before sorting and truncating the result.
+
+2. Performance Improvement Explanation
+The composite index:
+
+Eliminates Full Scans: The status predicate quickly narrows down rows.
+
+Avoids Sorting: The index pre-sorts created_at DESC, allowing the database to fetch the 50 most recent rows directly.
+
+Reduces I/O: With a covering index, heap lookups are avoided, further speeding up the query.
+
+Example:
+
+Without the index: Scan 1M rows → Filter 100K pending → Sort 100K → Return 50.
+
+With the index: Traverse the index → Fetch 50 rows directly.
